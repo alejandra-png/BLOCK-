@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BLOCK BLAST</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .game-container {
+            display: flex;
+            gap: 20px;
+        }
+        .game-area {
+            text-align: center;
+        }
+        .instructions {
+            width: 300px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        canvas {
+            border: 2px solid #2c3e50;
+            border-radius: 5px;
+        }
+        #score {
+            font-size: 24px;
+            margin: 10px 0;
+            color: #2c3e50;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-area">
+            <h1>BLOCK BLAST</h1>
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            <div id="score">Puntuación: 0</div>
+            <div>
+                <button onclick="restart()">Reiniciar</button>
+            </div>
+        </div>
+        <div class="instructions">
+            <h2>Instrucciones</h2>
+            <p>¡Bienvenido a Block Blast!</p>
+            <p>Objetivo: Elimina grupos de bloques del mismo color para ganar puntos.</p>
+            <ul>
+                <li>Haz clic en grupos de 3 o más bloques del mismo color para eliminarlos</li>
+                <li>Los bloques superiores caerán para llenar los espacios vacíos</li>
+                <li>Gana puntos por cada grupo de bloques eliminado</li>
+                <li>Avanza de nivel al alcanzar 5,000 puntos</li>
+                <li>¡Cada nivel es más difícil que el anterior!</li>
+            </ul>
+            <p>Consejos:</p>
+            <ul>
+                <li>Busca grupos grandes de bloques del mismo color</li>
+                <li>Planea tus movimientos para crear combinaciones más grandes</li>
+                <li>¡Sé estratégico para maximizar tu puntuación!</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const blockSize = 40;
+        const gridSize = 10;
+        let score = 0;
+        let level = 1;
+        let blocks = [];
+        let colors = [
+            '#FF0000', // Rojo intenso
+            '#00FF00', // Verde brillante
+            '#0000FF', // Azul intenso
+            '#FFD700', // Dorado
+            '#FF1493', // Rosa fuerte
+            '#8A2BE2', // Violeta
+            '#FF8C00', // Naranja
+            '#00FFFF'  // Cian
+        ];
+
+        function initializeBlocks() {
+            blocks = [];
+            for (let i = 0; i < gridSize; i++) {
+                blocks[i] = [];
+                for (let j = 0; j < gridSize; j++) {
+                    blocks[i][j] = {
+                        color: Math.floor(Math.random() * colors.length),
+                        active: true
+                    };
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (blocks[i][j].active) {
+                        ctx.fillStyle = colors[blocks[i][j].color];
+                        ctx.fillRect(j * blockSize, i * blockSize, blockSize - 1, blockSize - 1);
+                    }
+                }
+            }
+        }
+
+        function handleClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((event.clientX - rect.left) / blockSize);
+            const y = Math.floor((event.clientY - rect.top) / blockSize);
+
+            if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
+                const matches = findMatches(x, y);
+                if (matches.length >= 3) {
+                    removeBlocks(matches);
+                    dropBlocks();
+                    updateScore(matches.length);
+                    if (!hasValidMoves()) {
+                        checkGameState();
+                    }
+                }
+            }
+        }
+
+        function findMatches(x, y, matches = [], checked = new Set()) {
+            const key = `${x},${y}`;
+            if (checked.has(key)) return matches;
+            checked.add(key);
+
+            if (!blocks[y] || !blocks[y][x] || !blocks[y][x].active) return matches;
+
+            const color = blocks[y][x].color;
+            matches.push({x, y});
+
+            [[0, 1], [1, 0], [0, -1], [-1, 0]].forEach(([dx, dy]) => {
+                const newX = x + dx;
+                const newY = y + dy;
+                if (blocks[newY] && blocks[newY][newX] && 
+                    blocks[newY][newX].active && 
+                    blocks[newY][newX].color === color) {
+                    findMatches(newX, newY, matches, checked);
+                }
+            });
+
+            return matches;
+        }
+
+        function removeBlocks(matches) {
+            matches.forEach(({x, y}) => {
+                blocks[y][x].active = false;
+            });
+        }
+
+        function dropBlocks() {
+            for (let j = 0; j < gridSize; j++) {
+                let writePos = gridSize - 1;
+                for (let i = gridSize - 1; i >= 0; i--) {
+                    if (blocks[i][j].active) {
+                        if (i !== writePos) {
+                            blocks[writePos][j] = blocks[i][j];
+                            blocks[i][j] = {color: 0, active: false};
+                        }
+                        writePos--;
+                    }
+                }
+                for (let i = writePos; i >= 0; i--) {
+                    blocks[i][j] = {
+                        color: Math.floor(Math.random() * colors.length),
+                        active: true
+                    };
+                }
+            }
+        }
+
+        function hasValidMoves() {
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (blocks[i][j].active) {
+                        const matches = findMatches(j, i);
+                        if (matches.length >= 3) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function checkGameState() {
+            if (!hasValidMoves()) {
+                nextLevel();
+            }
+        }
+
+        function nextLevel() {
+            level++;
+            score = 0;
+            const minColors = 3;
+            const availableColors = Math.max(minColors, colors.length - Math.floor(level / 2));
+            
+            document.getElementById('score').textContent = `Puntuación: ${score} - Nivel: ${level}`;
+            initializeBlocks();
+            draw();
+            celebrate();
+        }
+
+        function celebrate() {
+            const message = `¡Felicidades! Has avanzado al nivel ${level}`;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+            setTimeout(() => {
+                draw();
+            }, 2000);
+        }
+
+        function updateScore(matchCount) {
+            const basePoints = 10;
+            const levelMultiplier = level * 1.5;
+            score += Math.floor(matchCount * basePoints * levelMultiplier);
+            document.getElementById('score').textContent = `Puntuación: ${score} - Nivel: ${level}`;
+            
+            if (score >= 5000) {
+                nextLevel();
+            } else {
+                draw();
+            }
+        }
+
+        function restart() {
+            score = 0;
+            level = 1;
+            document.getElementById('score').textContent = `Puntuación: ${score} - Nivel: ${level}`;
+            initializeBlocks();
+            draw();
+        }
+
+        canvas.addEventListener('click', handleClick);
+        initializeBlocks();
+        draw();
+    </script>
+</body>
+</html>
