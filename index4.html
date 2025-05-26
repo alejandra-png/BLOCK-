@@ -86,10 +86,12 @@
     </div>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const blockSize = 40;
-        const gridSize = 10;
+ const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const blockSize = 50; // Aumentado de 40 a 50
+const gridSize = 10;
+canvas.width = blockSize * gridSize; // Ajustando el tamaño del canvas
+canvas.height = blockSize * gridSize;
         let score = 0;
         let level = 1;
         let blocks = [];
